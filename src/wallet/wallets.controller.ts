@@ -1,6 +1,12 @@
-import { Controller, Get, Param } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { WalletsService } from './wallets.service';
+import { AdjustBalanceDto } from './dto/adjust-balance.dto';
 
 @ApiTags('wallets')
 @ApiBearerAuth()

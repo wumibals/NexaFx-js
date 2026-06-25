@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectQueue } from '@nestjs/bull';
 import { Repository } from 'typeorm';
@@ -17,6 +21,9 @@ export interface CreateWebhookEndpointDto {
   events: string[];
 }
 
+const MAX_ENDPOINTS_PER_USER =
+  parseInt(process.env.WEBHOOK_MAX_ENDPOINTS_PER_USER ?? '10', 10) || 10;
+
 @Injectable()
 export class WebhooksService {
   constructor(
@@ -31,6 +38,15 @@ export class WebhooksService {
   async createEndpoint(
     dto: CreateWebhookEndpointDto,
   ): Promise<WebhookEndpoint> {
+    const activeCount = await this.endpointsRepository.count({
+      where: { ownerId: dto.ownerId, isActive: true },
+    });
+    if (activeCount >= MAX_ENDPOINTS_PER_USER) {
+      throw new ConflictException(
+        `Maximum of ${MAX_ENDPOINTS_PER_USER} active webhook endpoints per user reached`,
+      );
+    }
+
     const endpoint = this.endpointsRepository.create({
       ...dto,
       isActive: true,
@@ -91,9 +107,7 @@ export class WebhooksService {
 
       await this.webhooksQueue.add(
         'deliver',
-        {
-          deliveryId: delivery.id,
-        },
+        { deliveryId: delivery.id },
         {
           jobId: delivery.id,
           attempts: Number(process.env.WEBHOOK_MAX_ATTEMPTS || '5'),
